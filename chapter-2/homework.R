@@ -188,5 +188,5 @@ posterior.birth.info <- unstandardized.posterior / sum(unstandardized.posterior)
 
 # probability pandas is from species 1, given veterinarian test and birth information
 composite.unstandardized.posterior <- posterior.vet.test * posterior.birth.info
-composite.posterior <- composite.unstandardized.posterior / sum(composite.posterior)
+composite.posterior <- composite.unstandardized.posterior / sum(composite.unstandardized.posterior)
 composite.posterior[1]
