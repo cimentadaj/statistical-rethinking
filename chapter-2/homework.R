@@ -173,89 +173,45 @@ posterior[1]
 # adjusted by the possible number of whites
 
 
+# 2H1
+pandas <- c("species_a" = 0.5, "species_b" = 0.5)
+prob_twins <- c("species_a" = 0.1, "species_b" = 0.2)
+
+posterior <- pandas * prob_twins
+# This is the probability of having twins in the FIRST birth for each species.
+# Because we're multiply the likelihood of being any of the two pandas
+# with their probability of having twins.
+std.posterior <- posterior / sum(posterior)
+
+# With the standardized posterior of having first birth as twins, we multiply
+# it again with the probability of having twins to have the probabilities
+# of a second birth.
+sum(std.posterior * prob_twins)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## 2H1
-
-# find posterior for plausibility of each pandas species following the first birth of twins
-species.1.likelihood <- .1
-species.2.likelihood <- .2
-likelihood <- c(species.1.likelihood, species.2.likelihood)
-prior <- c(1, 1)
-unstandardized.posterior <- likelihood * prior
-posterior <- unstandardized.posterior / sum(unstandardized.posterior)
-
-# probability next birth is set of twins
-posterior[1] * .1 + posterior[2] * .2
-
-## 2H2
-species.1.likelihood <- .1
-species.2.likelihood <- .2
-likelihood <- c(species.1.likelihood, species.2.likelihood)
-prior <- c(1, 1)
-unstandardized.posterior <- likelihood * prior
-posterior <- unstandardized.posterior / sum(unstandardized.posterior)
-
-# probability pandas is from species 1
+# 2H2
+# This is the probability that the first birh is twins for pandas A.
 posterior[1]
 
-## 2H3
+# 2H3
+pandas <- c("species_a" = 0.5, "species_b" = 0.5)
+prob_twins <- c("species_a" = 0.1, "species_b" = 0.2)
+posterior <- pandas * (prob_twins * (1 - prob_twins))
+posterior <- posterior / sum(posterior)
 
-species.1.likelihood <- .1 * (1 - .1)
-species.2.likelihood <- .2 * (1 - .2)
-likelihood <- c(species.1.likelihood, species.2.likelihood)
-prior <- c(1, 1)
-unstandardized.posterior <- likelihood * prior
-posterior <- unstandardized.posterior / sum(unstandardized.posterior)
-
-# probability pandas is from species 1
+# Get the probability that it is a singleton
 posterior[1]
 
-## 2H4
+# 2H4
 
-# without birth information
-species.1.likelihood <- .8
-species.2.likelihood <- 1 - .65
-likelihood <- c(species.1.likelihood, species.2.likelihood)
-prior <- c(1, 1)
-unstandardized.posterior <- likelihood * prior
-posterior.vet.test <- unstandardized.posterior / sum(unstandardized.posterior)
+## 1)
+pandas <- c("species_a" = 0.8, "species_b" = 1 - 0.65)
+## prob_twins <- c("species_a" = 0.1, "species_b" = 0.2)
+posterior <- pandas / sum(pandas)
+posterior[1]
 
-# probability pandas is from species 1, given veterinarian test
-posterior.vet.test[1]
-
-# with birth information
-species.1.likelihood <- .1 * (1 - .1)
-species.2.likelihood <- .2 * (1 - .2)
-likelihood <- c(species.1.likelihood, species.2.likelihood)
-prior <- c(1, 1)
-unstandardized.posterior <- likelihood * prior
-posterior.birth.info <- unstandardized.posterior / sum(unstandardized.posterior)
-
-# probability pandas is from species 1, given veterinarian test and birth information
-composite.unstandardized.posterior <- posterior.vet.test * posterior.birth.info
-composite.posterior <- composite.unstandardized.posterior / sum(composite.unstandardized.posterior)
-composite.posterior[1]
+## 2)
+prob_twins <- c("species_a" = 0.1, "species_b" = 0.2)
+posterior <- pandas * prob_twins
+posterior <- posterior / sum(posterior)
+posterior
