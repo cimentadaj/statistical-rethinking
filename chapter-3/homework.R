@@ -1,3 +1,6 @@
+library(ggplot2)
+library(rethinking)
+
 # homework
 n <- 1e3
 p_grid <- seq(0, 1, length.out = n)
@@ -108,17 +111,104 @@ simplehist(post_check)
 
 ## 5.3)
 post_check <- rbinom(1e4, 9, prob = post_sample)
-mean(post_check == 6) # 0.
+mean(post_check == 6) # 0.2343
 simplehist(post_check)
 
 
+## 3H1
+data(homeworkch3)
+
+n <- 1000
+posterior_grid <- seq(0, 1, length.out = n)
+prior <- rep(1, rep = n)
+
+# Data
+order_births <- data.frame(first_birth = birth1, second_birth = birth2)
+total_boys <- sum(order_births$first_birth) + sum(order_births$second_birth)
+total_births <- nrow(order_births) * 2 # Because there are two columns
+
+likelihood <- dbinom(total_boys, total_births, prob = posterior_grid)
+
+posterior  <- likelihood * prior
+posterior <- posterior / sum(posterior)
+
+posterior_grid[which.max(posterior)]
+
+
+## 3H2
+n <- 1e5
+sample_posterior <- sample(p_grid, n, prob = posterior, replace = TRUE)
+
+# 50% of the data is contained between these two values
+hpi_50 <- HPDI(sample_posterior, prob = 0.5)
+
+# 89% of the data is contained between these two values
+hpi_89 <- HPDI(sample_posterior, prob = 0.89)
+
+# 97% of the data is contained between these two values
+hpi_97 <- HPDI(sample_posterior, prob = 0.97)
+
+
+## 3H3
+
+replicate_births <- rbinom(n, 200, prob = sample_posterior)
+
+## The posterior seems to match the data very well as both lines overlap almost
+## perfectly
+
+qplot(replicate_births, geom = "histogram", bins = 100) +
+  geom_vline(xintercept = mean(replicate_births), color = 'red', alpha = 1/2) +
+  geom_vline(xintercept = total_boys, color = 'blue', alpha = 1/2)
+
+## In another way:
+mean(replicate_births) ## 110.89
+total_boys ## 111
+
+
+## 3H4
+total_boys_first_births <- sum(order_births$first_birth)
+total_first_births <- length(order_births$first_birth)
+replicate_births_first <- rbinom(n, 100, prob = sample_posterior)
+
+qplot(replicate_births_first, geom = "histogram", bins = 100) +
+  geom_vline(xintercept = mean(replicate_births_first),
+             color = 'red') +
+  geom_vline(xintercept = total_boys_first_births,
+             color = 'blue')
+
+
+## In another way:
+mean(replicate_births_first) ## 55.45
+total_boys_first_births ## 51
+
+## 3H5
+
+only_female_first_birth <- order_births[order_births$first_birth == 0, ]
+total_female_first_birth <- nrow(only_female_first_birth)
+second_birth_boy <- sum(only_female_first_birth$second_birth)
+post_boys <- rbinom(n, total_female_first_birth, prob = sample_posterior)
+
+qplot(post_boys, geom = "histogram", bins = 100) +
+  geom_vline(xintercept = mean(post_boys),
+             color = 'red') +
+  geom_vline(xintercept = second_birth_boy,
+             color = 'blue')
+
+
+mean(post_boys) ## 27.18
+median(post_boys)  ## 27
+
+second_birth_day ## 39
+
+
+## It looks like the model is under predicting boys followed after first birth
+## girls. It looks like the second birth is not independent from the first
+## so the model should take this into account.
+
+
+
+
 tst
-
-
-
-
-
-
 
 
 
