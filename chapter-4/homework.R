@@ -154,17 +154,19 @@ sigma ~ dunif(0, 5)
 ## this model needs to account for the within-year clustering of students.
 
 
-## 4H2
+## 4H1
 data(Howell1)
 d <- Howell1
+avg_weight <- mean(d$weight)
+sd_weight <- sd(d$weight)
 
 ## Standardize weight so intercept is mean height on mean weight
-d$weight <- (d$weight - mean(d$weight)) / sd(d$weight)
+d$weight <- (d$weight - avg_weight) / sd_weight
 
 sim_height <- data.frame(unstd.weight = c(46.95, 43.72, 64.78, 32.59, 54.63))
 ## standardize the manual weights
 sim_height$weight <-
-  with(sim_height, (unstd.weight - mean(unstd.weight)) / sd(unstd.weight))
+  with(sim_height, (unstd.weight - avg_weight) / sd_weight)
 
 form_height <-
   alist(
@@ -186,156 +188,122 @@ sim_height$hpdi <- lapply(1:ncol(avg_hpdi), function(i) avg_hpdi[, i])
 sim_height$weight <- NULL
 sim_height
 
-
-
-
-
-
-
-tst
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## 4M1
-trials <- 1e3
-mu.prior.samples <- rnorm(n = trials, mean = 0, sd = 10)
-sigma.prior.samples <- runif(n = trials, min = 0, max = 10)
-simulated.heights.from.prior <- rnorm(n = trials,
-                                      mean = mu.prior.samples,
-                                      sd = sigma.prior.samples)
-
-## 4M2
-formula.list <- alist(
-  y ~ dnorm( mu , sigma ),
-  mu ~ dnorm( 0 , 10 ),
-  sigma ~ dunif( 0 , 10 )
-)
-
-## 4H1
-
-# load data
-data(Howell1)
-d <- Howell1
-d$weight.centered <- (d$weight - mean(d$weight)) / sd(d$weight)
-
-# build model
-model <- map(
-  alist(
-    height ~ dnorm(mean = mu, sd = sigma),
-    mu <- alpha + beta*weight.centered,
-    alpha ~ dnorm(mean = 0, sd = 100),
-    beta ~ dnorm(mean = 0, sd = 10),
-    sigma ~ dunif(min = 0, max = 64)
-  ),
-  data = d
-)
-
-# simulate heights from model
-individual.weights <- c(46.95, 43.72, 64.78, 32.59, 54.63)
-individual.weights.centered <- (individual.weights - mean(d$weight)) / sd(d$weight)
-simulated.heights <- sim(model, data = list(weight.centered = individual.weights.centered))
-
-# summarize results
-simulated.heights.mean <- apply(X = simulated.heights, MARGIN = 2, FUN = mean)
-simulated.heights.PI <- apply(X = simulated.heights, MARGIN = 2, FUN = PI, prob = .89)
-
-# try it manually for the first individual
-posterior.samples <- extract.samples(model)
-simulated.heights.first.individual <- rnorm(n = trials, mean = posterior.samples$alpha + posterior.samples$beta*individual.weights.centered[1], sd = posterior.samples$sigma)
-simulated.heights.first.individual.mean <- mean(simulated.heights.first.individual)
-simulated.heights.first.individual.PI <- PI(samples = simulated.heights.first.individual, prob = .89)
+## I've contrasted the previos with other solutions and all are different.
+## This is because of the prior on a and b.
 
 ## 4H2
-data(Howell1)
-d <- Howell1
-d <- d[d$age < 18,]
 
-# scale weight column
-d$weight.standardized <- d$weight
+d2 <- subset(Howell1, age < 18)
 
-# a)
-model <- map(
+## a)
+avg_weight <- mean(d2$weight)
+sd_weight <- sd(d2$weight)
+
+## Standardize weight so intercept is mean height on mean weight
+d2$std.weight <- (d2$weight - avg_weight) / sd_weight
+
+m2 <- quap(
   alist(
-    height ~ dnorm(mean = mu, sd = sigma),
-    mu <- alpha + beta*weight.standardized,
-    alpha ~ dnorm(mean = 100, sd = 100),
-    beta ~ dnorm(mean = 0, sd = 10),
-    sigma ~ dunif(min = 0, max = 50)
+    height ~ dnorm(mu, sigma),
+    mu <- a + b * (std.weight / 0.05), # 1SD increase is too much, so this would be a 0.05 increase
+    a ~ dnorm(100, 20),
+    b ~ dlnorm(0, 0.5),
+    sigma ~ dunif(0, 50)
   ),
-  data = d
+  data = d2
 )
 
-precis(model)
+precis(m2)
 
-# b)
-library(MASS)
-trials <- 1e5
+## The average height on the average withgt is 108cm. A 0.05 standard deviation
+## increase in weight is associated with a 1.205cm increase in height.
+## Even though this samples from very young people, I find the
+## increase very very high.
 
-weight.seq <- seq(from = 1, to = 45, length.out = 50)
+## b)
 
-# simulate mu then compute mean and hpdi
-posterior.samples <- data.frame( mvrnorm(n = trials, mu = coef(model), Sigma = vcov(model)) )
-mu.link <- function(weight) posterior.samples$alpha + posterior.samples$beta * weight
-mu <- sapply(X = weight.seq, FUN = mu.link)
-mu.mean <- apply(X = mu, MARGIN = 2, FUN = mean)
-mu.hpdi <- apply(X = mu, MARGIN = 2, FUN = HPDI, prob = .89)
+range_weight <- range(d2$weight)
+pred_weight <-
+  seq(range_weight[1],
+      range_weight[2],
+      length.out = 50)
 
-# simulate heights then compute hpdi
-height.link <- function(weight) rnorm(n = nrow(posterior.samples), mean = mu.link(weight), sd = posterior.samples$sigma)
-height.samples <- sapply(X = weight.seq, FUN = height.link)
-height.hpdi <- apply(X = height.samples, MARGIN = 2, FUN = HPDI, prob = .89)
+pred_weight_std <- (pred_weight - avg_weight) / sd_weight
+posterior_height <- sim(m2, data = data.frame(std.weight = pred_weight_std))
+pred_height <- apply(posterior_height, 2, mean)
+pred_hpdi <- apply(posterior_height, 2, HPDI)
 
-# plot results
-plot(height ~ weight.standardized, data = d, col = col.alpha(rangi2, .5))
-lines(x = weight.seq, y = mu.mean)
-shade(object = mu.hpdi, lim = weight.seq)
-shade(object = height.hpdi, lim = weight.seq)
+sim_df <- data.frame(height = pred_height,
+                     weight = pred_weight,
+                     lower_bound = pred_hpdi[1, ],
+                     upper_bound = pred_hpdi[2, ])
+
+library(ggplot2)
+
+ggplot(d2, aes(weight, height)) +
+  geom_point() +
+  geom_smooth(data = sim_df, aes(weight, height)) +
+  geom_ribbon(data = sim_df, aes(ymin = lower_bound, ymax = upper_bound),
+              alpha = 1/3)
+
+
+## c)
+## Add splines/polynomials and perhaps play around with log scales
+
+
 
 ## 4H3
-data(Howell1)
-d <- Howell1
-trials <- 1e5
+d3 <- Howell1
 
-model <- map(
-  alist(
-    height ~ dnorm(mean = mu, sd = sigma),
-    mu <- alpha + beta*log(weight),
-    alpha ~ dnorm(mean = 178, sd = 100),
-    beta ~ dnorm(mean = 0, sd = 100),
-    sigma ~ dunif(min = 0, max = 50)
-  ),
-  data = d
-)
+## a)
+m3 <-
+  quap(
+    alist(
+      height ~ dnorm(mu, sigma),
+      mu <- a + b * log(weight),
+      a ~ dnorm(178, 100),
+      b ~ dnorm(0, 100),
+      sigma ~ dunif(0, 50)
+    ),
+    data = d3
+  )
 
-# simulate mu then compute mean and hpdi
-weight.seq <- seq(from = 1, to = 70, length.out = 100)
-posterior.samples <- data.frame( mvrnorm(n = trials, mu = coef(model), Sigma = vcov(model)) )
-mu.link <- function(weight) posterior.samples$alpha + posterior.samples$beta * log(weight)
-mu <- sapply(X = weight.seq, FUN = mu.link)
+## Difficult to interpret
+summary(m3)
+
+## Let's plot it
+
+# Get the predicted heights
+sim_weight <- seq(4, 65, length.out = 60)
+sim_height <- sim(m3, data = data.frame(weight = sim_weight))
+pred_height <- apply(sim_height, 2, mean)
+pred_hpdi <- apply(sim_height, 2, HPDI)
+
+# Simulate predicted heights
+n <- 1e5
+posterior.samples <- data.frame( mvrnorm(n = n, mu = coef(m3), Sigma = vcov(m3)) )
+mu.link <- function(weight) posterior.samples$a + posterior.samples$b * log(weight)
+mu <- sapply(X = sim_weight, FUN = mu.link)
 mu.mean <- apply(X = mu, MARGIN = 2, FUN = mean)
 mu.hpdi <- apply(X = mu, MARGIN = 2, FUN = HPDI, prob = .89)
 
-# simulate heights then compute hpdi
-height.link <- function(weight) rnorm(n = nrow(posterior.samples), mean = mu.link(weight), sd = posterior.samples$sigma)
-height.samples <- sapply(X = weight.seq, FUN = height.link)
-height.hpdi <- apply(X = height.samples, MARGIN = 2, FUN = HPDI, prob = .89)
 
-# plot results
-plot(height ~ weight, data = d, col = col.alpha(rangi2, .4))
-lines(x = weight.seq, y = mu.mean)
-shade(object = mu.hpdi, lim = weight.seq)
-shade(object = height.hpdi, lim = weight.seq)
+sim_df <- data.frame(height = pred_height,
+                     weight = sim_weight,
+                     lower_bound = pred_hpdi[1, ],
+                     upper_bound = pred_hpdi[2, ],
+                     height_mu = mu.mean,
+                     lower_bound_mu = mu.hpdi[1, ],
+                     upper_bound_mu = mu.hpdi[2, ]
+                     )
+
+ggplot(d3, aes(weight, height)) +
+  geom_point(alpha = 1/3) +
+  geom_line(data = sim_df, aes(weight, height), color = "blue") +
+  ## uncertainty interval around the predicted height
+  geom_ribbon(data = sim_df, aes(ymin = lower_bound, ymax = upper_bound),
+              alpha = 1/3) +
+  ## uncertainty interval around the mean simulated height
+  geom_ribbon(data = sim_df, aes(ymin = lower_bound_mu, ymax = upper_bound_mu),
+              alpha = 1/3, color = "red") +
+  theme_minimal()
