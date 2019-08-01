@@ -199,13 +199,13 @@ plot(temp ~ year, data = d)
 
 
 d2 <- d[complete.cases(d$temp), ]
-num_knots <- 15
+num_knots <- 5
 knot_list <- quantile(d2$year, probs = seq(0, 1, length.out = num_knots))
 
 library(splines)
 B <- bs(d2$year,
         knots = knot_list[-c(1, num_knots)],
-        degree = 3,
+        degree = 4,
         intercept = TRUE)
 
 plot(NULL,
@@ -215,3 +215,30 @@ plot(NULL,
      ylab = "basis value")
 
 for (i in 1:ncol(B)) lines(d2$year, B[, i])
+
+m4.7 <- quap(
+  alist(
+    T ~ dnorm(mu, sigma),
+    mu <- a + B %*% w,
+    a ~ dnorm(6, 10),
+    w ~ dnorm(0, 1),
+    sigma ~ dexp(1)
+  ),
+  data = list(T = d2$temp, B = B),
+  start = list(w = rep(0, ncol(B)))
+)
+
+post <- extract.samples(m4.7)
+w <- apply(post$w, 2, mean)
+plot(NULL,
+     xlim = range(d2$year),
+     ylim = c(-2, 2),
+     xlab = "year",
+     ylab = "basis * weight")
+for (i in 1:ncol(B)) lines(d2$year, w[i] * B[, i])
+
+mu <- link(m4.7)
+mu_PI <- apply(mu, 2, PI, 0.97)
+plot(d2$year, d2$temp, col = col.alpha(rangi2, 0.3), pch = 16)
+shade(mu_PI, d2$year, col = col.alpha("black", 0.5))
+
