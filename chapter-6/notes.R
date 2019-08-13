@@ -2,6 +2,56 @@
 
 library(rethinking)
 
+
+n <- 200
+prop <- .1
+obs <- n * prop
+news <- rnorm(n, sd = 0.8)
+trustworth <- rnorm(n, sd = 0.8)
+sim_df <- data.frame(news, trustworth, combined = news + trustworth)
+
+sim_df %>%
+  ggplot(aes(news, trustworth)) +
+  geom_point() +
+  geom_point(
+    data = sim_df %>% arrange(combined) %>% slice((n - obs):n),
+    color = "blue"
+  ) +
+  geom_smooth(
+    data = sim_df %>% arrange(combined) %>% slice((n - obs):n),
+    method = "lm",
+    color = "blue",
+    se = FALSE
+  )
+
+
+sim_cor <- function(prop) {
+  n <- nrow(sim_df)
+  obs <- n * prop
+
+  sim_df %>%
+    arrange(combined) %>%
+    slice((n - obs):n) %>%
+    {cor(.$news, .$trustworth)}
+}
+
+tibble(
+  prop = seq(0, 1, length.out = 100),
+  cor = sapply(prop, sim_cor)
+) %>%
+  ggplot(aes(prop, cor)) +
+  geom_point()
+
+
+
+
+
+
+
+
+
+
+
 ## 6.15
 data(cars)
 m <- map(
